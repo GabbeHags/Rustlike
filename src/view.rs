@@ -2,8 +2,8 @@ extern crate crossterm;
 use crate::game::{Entity, Model, Structures};
 use crossterm::terminal::ClearType;
 use crossterm::{execute, terminal};
-use std::io::{stdout, Stdout, Write};
-use std::ptr::write;
+use std::io::{BufWriter, stdout, Stdout, Write};
+use std::mem::size_of;
 
 pub struct Screen {
     out: Stdout,
@@ -17,31 +17,39 @@ impl Screen {
     }
 
     pub fn render(&mut self, model: &Model) {
-        for row in model.get_cells() {
-            for cell in row {
+        let (c, r) = model.get_size();
+        let mut buffer = BufWriter::with_capacity(c*r*size_of::<char>()+r, &self.out);
+        let cells = model.get_cells();
+        for row in 0..r {
+            for col in 0..c {
+                let cell = cells[row * c + col];
                 if cell.occupied() {
-                    write!(self.out, "{}", entity_to_char(cell.entity.as_ref().unwrap()));
+                    buffer.write_fmt(format_args!("{}", entity_to_char(cell.entity.as_ref().unwrap()))).unwrap();
                 }
                 else {
-                    write!(self.out, "{}", structure_to_char(&cell.structure));
+                    buffer.write_fmt(format_args!("{}", structure_to_char(&cell.structure))).unwrap();
                 }
             }
-            write!(self.out, "\n");
+            buffer.write_fmt(format_args!("\n")).unwrap();
         }
+        buffer.flush().unwrap();
     }
 
-    pub fn start(&mut self) {
-        execute!(self.out, terminal::EnterAlternateScreen);
-        terminal::enable_raw_mode();
+    pub fn start(&mut self) -> crossterm::Result<()>{
+        execute!(self.out, terminal::EnterAlternateScreen, crossterm::cursor::Hide)?;
+        terminal::enable_raw_mode()?;
+        Ok(())
     }
 
-    pub fn end(&mut self) {
-        terminal::disable_raw_mode();
-        execute!(self.out, terminal::LeaveAlternateScreen);
+    pub fn end(&mut self) -> crossterm::Result<()>{
+        terminal::disable_raw_mode()?;
+        execute!(self.out, terminal::LeaveAlternateScreen, crossterm::cursor::Show)?;
+        Ok(())
     }
 
-    pub fn clear_screen(&mut self) {
-        execute!(self.out, terminal::Clear(ClearType::All));
+    pub fn clear_screen(&mut self) -> crossterm::Result<()>{
+        execute!(self.out, terminal::Clear(ClearType::All))?;
+        Ok(())
     }
 }
 
