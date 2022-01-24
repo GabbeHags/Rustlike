@@ -39,32 +39,28 @@ impl Model {
     }
 
     fn move_player(&mut self, dir: Direction) {
-        let mut new_point = self.player.pos;
+        let mut x = self.player.pos.0 as isize;
+        let mut y = self.player.pos.1 as isize;
+
+        let (size_x, size_y) = self.get_size();
+
         match dir {
-            Direction::N => {
-                if new_point.1 > 0 {
-                    new_point.1 -= 1;
-                }
-            }
-            Direction::E => {
-                if new_point.0 < self.get_size().0-1 {
-                    new_point.0 += 1
-                }
-            }
-            Direction::S => {
-                if new_point.1 < self.get_size().1-1 {
-                    new_point.1 += 1
-                }
-            }
-            Direction::W => {
-                if new_point.0 > 0 {
-                    new_point.0 -= 1
-                }
-            }
+            Direction::N => y -= 1,
+            Direction::E => x += 1,
+            Direction::S => y += 1,
+            Direction::W => x -= 1
         }
+        // checks if the x and y is within the bounds
+        if !(0 <= x && x < size_x as isize-1 && 0 <= y && y < size_y as isize-1) {
+            return
+        }
+        debug_assert!(0 <= x, "x is {x}");
+        debug_assert!(0 <= y, "y is {y}");
+        let new_point = Point(x as usize, y as usize);
         if self.is_cell_walkable(new_point) {
             self.player.pos = new_point;
         }
+        // self.player.pos = new_point;
     }
 }
 
@@ -78,7 +74,7 @@ pub enum Events {
     Quit,
 }
 
-type Cells = Vec<Vec<Cell>>;
+type Cells = Vec<Cell>;
 
 struct Board {
     size: (usize, usize),
@@ -89,43 +85,42 @@ impl Index<Point> for Board {
     type Output = Cell;
 
     fn index(&self, index: Point) -> &Self::Output {
-        &self.cells[index.1][index.0]
+        &self.cells[index.1 * self.size.0 + index.0]
     }
 }
+
 impl Index<Player> for Board {
     type Output = Cell;
 
     fn index(&self, player: Player) -> &Self::Output {
         let index = player.pos;
-        &self.cells[index.1][index.0]
+        &self.cells[index.1 * self.size.0 + index.0]
     }
 }
 
 impl IndexMut<Point> for Board {
     fn index_mut(&mut self, index: Point) -> &mut Self::Output {
-        &mut self.cells[index.1][index.0]
+        &mut self.cells[index.1 * self.size.0 + index.0]
     }
 }
 
 impl IndexMut<Player> for Board {
     fn index_mut(&mut self, player: Player) -> &mut Self::Output {
         let index = player.pos;
-        &mut self.cells[index.1][index.0]
+        &mut self.cells[index.1 * self.size.0 + index.0]
     }
 }
 
 impl Board {
     fn new(x: X, y: Y) -> Board {
-        let mut rows = Vec::with_capacity(y);
-        for r in 0..y {
-            rows.push(Vec::with_capacity(x));
-            for _ in 0..x {
-                rows[r].push(Cell::new());
-            }
+        let mut cells = Vec::with_capacity(x*y);
+        // let cells = vec![Cell::new(); x*y];
+        for _ in 0..x*y {
+            cells.push(Cell::new())
         }
         Board {
             size: (x, y),
-            cells: rows,
+            cells,
         }
     }
 }
@@ -138,10 +133,7 @@ pub enum Structures {
 
 impl Structures {
     fn is_walkable(&self) -> bool {
-        match self {
-            Structures::Floor => true,
-            _ => false
-        }
+        matches!(self, Structures::Floor)
     }
 }
 #[derive(Copy, Clone)]
