@@ -9,7 +9,7 @@ impl Model {
     pub fn new(x: X, y: Y) -> Model{
         Model {
             board: Board::new(x, y),
-            player: Player::new()
+            player: Player::new(x, y)
         }
     }
 
@@ -24,6 +24,7 @@ impl Model {
     pub fn update(&mut self) {
         self.board = Board::new(self.board.size.0, self.board.size.1);
         self.board[self.player].entity = Some(Entity::Player);
+        self.make_room(Point(0, 0), self.get_size(), None);
     }
 
     pub fn do_action(&mut self, e: Events) {
@@ -61,6 +62,41 @@ impl Model {
             self.player.pos = new_point;
         }
         // self.player.pos = new_point;
+    }
+
+    fn make_room(&mut self, top_left: Point, size: (X, Y), opening: Option<Direction>) {
+        let p2 = Point(top_left.0 + size.0-1, top_left.1 + size.1-1);
+        if self.board.point_in(&top_left) && self.board.point_in(&p2) {
+            for y in top_left.1..p2.1+1 {
+                for x in top_left.0..p2.0+1 {
+                    let p = Point(x, y);
+                    // if self.board[p].structure == Structures::Floor || self.board[p].structure == Structures::Void {
+                    if y == top_left.1 || x == top_left.0 || y == p2.1 || x == p2.0 {
+                        self.board[p].set_struct(Structures::Wall);
+                    }
+                    else {
+                        self.board[p].set_struct(Structures::Floor);
+                    }
+                    // }
+                }
+            }
+        }
+        if let Some(dir) = opening {
+            match dir {
+                Direction::N => {
+                    self.board[Point(top_left.0+(size.0/2), top_left.1)].set_struct(Structures::Floor);
+                }
+                Direction::E => {
+                    self.board[Point(top_left.0+size.0-1, top_left.1+(size.1/2))].set_struct(Structures::Floor);
+                }
+                Direction::S => {
+                    self.board[Point(top_left.0+(size.0/2), top_left.1+size.1-1)].set_struct(Structures::Floor);
+                }
+                Direction::W => {
+                    self.board[Point(top_left.0, top_left.1+(size.1/2))].set_struct(Structures::Floor);
+                }
+            }
+        }
     }
 }
 
@@ -114,7 +150,6 @@ impl IndexMut<Player> for Board {
 impl Board {
     fn new(x: X, y: Y) -> Board {
         let mut cells = Vec::with_capacity(x*y);
-        // let cells = vec![Cell::new(); x*y];
         for _ in 0..x*y {
             cells.push(Cell::new())
         }
@@ -122,6 +157,11 @@ impl Board {
             size: (x, y),
             cells,
         }
+    }
+
+    fn point_in(&self, p: &Point) -> bool {
+        let (size_x, size_y) = self.size;
+        (0..size_x).contains(&p.0) && (0..size_y).contains(&p.1)
     }
 }
 #[derive(Copy, Clone)]
@@ -152,9 +192,9 @@ struct Player {
 }
 
 impl Player {
-    fn new() -> Player {
+    fn new(x: X, y: Y) -> Player {
         Player {
-            pos: Point(0,0)
+            pos: Point(x/2,y/2)
         }
     }
 }
